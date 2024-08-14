@@ -9,14 +9,10 @@ public class Main extends UseCaseBase{
 
     public static void main(String[] args) throws Exception {
         UseCaseDispatcher useCaseDispatcher = new UseCaseDispatcherService();
-        String pid = useCaseDispatcher.dispatcher(TesteUsecase.class, 0);
-        try {
-            useCaseDispatcher.getUseCase(pid)
+        String pid = useCaseDispatcher.dispatcher(TesteUsecase.class, 2);
+        useCaseDispatcher.getUseCase(pid)
             .ifThrow(() -> new Exception("teste"))
-            .get();
-        } catch (Exception e) {
-            System.out.println(e.getMessage());
-        }
+        .get();
     }
 
 }
