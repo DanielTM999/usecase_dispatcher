@@ -198,6 +198,22 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             }
         }
 
+        @SuppressWarnings("unchecked")
+        @Override
+        public <T, E extends Exception> T get(Class<E> extBase) throws E{
+            T result;
+            try {
+                result = (T) action.get();
+                return result;
+            } catch (final InterruptedException | ExecutionException e) {
+                if (exceptionHandler != null) {
+                    throw (E) exceptionHandler.apply(e.getCause());
+                } else {
+                    return null;
+                }
+            }
+        }
+
         @Override
         public UseCaseResult ifThrow(Function<Throwable, ? extends Exception> exceptionHandler) {
             this.exceptionHandler = exceptionHandler;
