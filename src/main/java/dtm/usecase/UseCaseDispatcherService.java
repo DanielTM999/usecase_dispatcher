@@ -120,7 +120,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 initMethod.setAccessible(true);
                 return runMethodObject(entityObject, initMethod, args);
             }catch(Exception e){
-                throw new UseCaseException("Interrompendo caso de uso:"+clazz.getSimpleName()+" por falha");
+                throw new UseCaseException(e);
             }
         });
         useCases.put(pid, result);
