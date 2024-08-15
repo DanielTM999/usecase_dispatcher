@@ -120,7 +120,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 initMethod.setAccessible(true);
                 return runMethodObject(entityObject, initMethod, args);
             }catch(Exception e){
-                throw new UseCaseException(e.getMessage());
+                throw new UseCaseException(e.getCause());
             }
         });
         useCases.put(pid, result);
@@ -190,8 +190,9 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 result = (T) action.get();
                 return result;
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
+                final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
-                    throw exceptionHandler.apply(e.getCause());
+                    throw exceptionHandler.apply(root.getCause());
                 } else {
                     return null;
                 }
@@ -206,8 +207,9 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 result = (T) action.get();
                 return result;
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
+                final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
-                    throw (E) exceptionHandler.apply(e.getCause());
+                    throw (E) exceptionHandler.apply(root.getCause());
                 } else {
                     return null;
                 }
