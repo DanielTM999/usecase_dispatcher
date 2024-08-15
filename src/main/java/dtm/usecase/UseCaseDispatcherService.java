@@ -26,7 +26,19 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
 
     @Override
     public String dispatcher(Class<? extends UseCaseBase> clazz) {
-        String pid = getPinId(clazz);
+        String pid = generatePID(null);
+        return dispatcher(pid, clazz);
+    }
+
+    @Override
+    public String dispatcher(Class<? extends UseCaseBase> clazz, Object... args) {
+        String pid = generatePID(null);
+        return dispatcher(pid, clazz, args);
+    }
+    
+    @Override
+    public String dispatcher(String PID, Class<? extends UseCaseBase> clazz) {
+        String pid = generatePID(PID);
         Retention retention = getScope(clazz);
 
         if(retention == Retention.ANY){
@@ -40,8 +52,8 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
     }
 
     @Override
-    public String dispatcher(Class<? extends UseCaseBase> clazz, Object... args) {
-        String pid = getPinId(clazz);
+    public String dispatcher(String PID, Class<? extends UseCaseBase> clazz, Object... args) {
+        String pid = generatePID(PID);
         Retention retention = getScope(clazz);
 
         if(retention == Retention.ANY){
@@ -87,19 +99,6 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         return methodsFilters.get(0);
     }
     
-    private String getPinId(Class<? extends UseCaseBase> clazz){
-        if(clazz.isAnnotationPresent(UseCase.class)){
-            UseCase useCase = clazz.getAnnotation(UseCase.class);
-            String pin = useCase.id();
-            if(pin == null || pin.isEmpty()){
-                return UUID.randomUUID().toString();
-            }
-            return pin;
-        }else{
-            throw new RuntimeException("classe de caso de uso sem anotação presente: ["+clazz.getName()+"]");
-        }
-    }
-
     private Retention getScope(Class<? extends UseCaseBase> clazz){
         if(clazz.isAnnotationPresent(UseCase.class)){
             UseCase useCase = clazz.getAnnotation(UseCase.class);
@@ -117,11 +116,12 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         CompletableFuture<Object> result = CompletableFuture.supplyAsync(() -> {
             Object entityObject = initializeUseCaseObject(clazz);
             Method initMethod = getInitialMethod(clazz);
+            validateARGS(initMethod, args);
             try{
                 initMethod.setAccessible(true);
                 return runMethodObject(entityObject, initMethod, args);
             }catch(Exception e){
-                throw new UseCaseException("Interrompendo caso de uso:"+clazz.getName()+" por falha");
+                throw new UseCaseException("Interrompendo caso de uso:"+clazz.getSimpleName()+" por falha");
             }
         });
         useCases.put(pid, result);
@@ -151,6 +151,23 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         }
     }
 
+    private String generatePID(String baseSeed){
+        if(baseSeed == null || baseSeed.isEmpty()){
+            baseSeed = UUID.randomUUID().toString();
+        }
+
+        return baseSeed;
+    }
+
+    private void validateARGS(final Method method, Object[] args){
+        if(args == null){
+            args = new Object[0];
+        }
+        if(method.getParameterCount() != args.length){
+            throw new RuntimeException("numero de parametros invaliados expected: "+method.getParameterCount());
+        }
+    }
+
     private class UseCaseResultData extends UseCaseResult{
         final private String pid;
         final private CompletableFuture<Object> action;
@@ -174,7 +191,6 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 result = (T) action.get();
                 return result;
             } catch (final InterruptedException | ExecutionException e) {
-                System.out.println(e.getMessage());
                 if(exception == null){
                     throw e;
                 }else{
