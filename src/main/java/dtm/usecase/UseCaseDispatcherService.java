@@ -9,9 +9,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
-
 import dtm.usecase.annotatins.InitCase;
 import dtm.usecase.annotatins.UseCase;
 import dtm.usecase.core.UseCaseBase;
@@ -171,7 +170,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
     private class UseCaseResultData extends UseCaseResult{
         final private String pid;
         final private CompletableFuture<Object> action;
-        private Supplier<? extends Exception> exception;
+        private Function<Throwable, ? extends Exception> exceptionHandler;
 
         public UseCaseResultData(String pid, CompletableFuture<Object> action){
             this.pid = pid;
@@ -191,17 +190,17 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 result = (T) action.get();
                 return result;
             } catch (final InterruptedException | ExecutionException e) {
-                if(exception == null){
-                    throw e;
-                }else{
-                    throw exception.get();
+                if (exceptionHandler != null) {
+                    throw exceptionHandler.apply(e.getCause());
+                } else {
+                    return null;
                 }
             }
         }
 
         @Override
-        public UseCaseResult ifThrow(Supplier<? extends Exception> exception) {
-            this.exception = exception;
+        public UseCaseResult ifThrow(Function<Throwable, ? extends Exception> exceptionHandler) {
+            this.exceptionHandler = exceptionHandler;
             return this;
         }
 
