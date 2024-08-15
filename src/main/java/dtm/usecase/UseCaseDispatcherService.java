@@ -120,7 +120,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 initMethod.setAccessible(true);
                 return runMethodObject(entityObject, initMethod, args);
             }catch(Exception e){
-                throw new UseCaseException(e);
+                throw new UseCaseException(e.getMessage());
             }
         });
         useCases.put(pid, result);
