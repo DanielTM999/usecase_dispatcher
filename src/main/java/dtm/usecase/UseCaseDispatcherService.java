@@ -205,7 +205,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             try {
                 result = (T) action.get();
                 return result;
-            } catch (final InterruptedException | ExecutionException e) {
+            } catch (final InterruptedException | ExecutionException | RuntimeException e) {
                 if (exceptionHandler != null) {
                     throw (E) exceptionHandler.apply(e.getCause());
                 } else {
