@@ -5,6 +5,7 @@ O `UseCaseDispatcherService` é uma implementação da interface `UseCaseDispatc
 ## Índice
 
 - [Visão Geral](#visão-geral)
+- [instalação](#instalação)
 - [Funcionalidades](#funcionalidades)
 - [Estrutura do Código](#estrutura-do-código)
 - [Exemplo de Uso](#exemplo-de-uso)
@@ -20,6 +21,41 @@ A classe suporta dois escopos principais:
 
 - **ANY**: Escopo de aplicação, compartilhado por toda a aplicação.
 - **THIS**: Escopo específico, isolado por sessão ou instância.
+
+## instalação
+
+## Instalação
+
+### Instalação com Maven
+
+**Adicionar o Repositório**
+
+Adicione o repositório público ao seu arquivo `pom.xml`:
+
+```xml
+<repositories>
+  <repository>
+    <id>github</id>
+    <url>https://maven.pkg.github.com/DanielTM999/usecase_dispatcher</url>
+  </repository>
+</repositories>
+```
+
+**Adicionar a Dependência**
+
+Em seguida, adicione a dependência do UseCaseDispatcherService ao seu pom.xml. Verifique a versão mais recente no repositório GitHub e ajuste a versão conforme necessário:
+
+```xml
+<dependencies>
+  <dependency>
+    <groupId>com.example</groupId>
+    <artifactId>usecase-dispatcher</artifactId>
+    <version>1.0.0</version>
+  </dependency>
+</dependencies>
+```
+Certifique-se de substituir com.example e usecase-dispatcher pelos valores corretos conforme definido no repositório.
+
 
 ## Funcionalidades
 
