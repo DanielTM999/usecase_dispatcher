@@ -191,11 +191,11 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 result = (T) action.get();
                 return result;
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
+                 e.printStackTrace();
                 final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
                     throw exceptionHandler.apply(root.getCause());
                 } else {
-                    e.printStackTrace();
                     return null;
                 }
             }
@@ -209,11 +209,11 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 result = (T) action.get();
                 return result;
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
+                 e.printStackTrace();
                 final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
                     throw (E) exceptionHandler.apply(root.getCause()));
                 } else {
-                    e.printStackTrace();
                     return null;
                 }
             }
