@@ -195,6 +195,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 if (exceptionHandler != null) {
                     throw exceptionHandler.apply(root.getCause());
                 } else {
+                    e.printStackTrace();
                     return null;
                 }
             }
@@ -212,6 +213,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 if (exceptionHandler != null) {
                     throw (E) exceptionHandler.apply(root.getCause()));
                 } else {
+                    e.printStackTrace();
                     return null;
                 }
             }
