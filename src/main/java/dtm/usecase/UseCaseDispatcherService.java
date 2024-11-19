@@ -166,7 +166,6 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             throw new RuntimeException("A quantidade argumantos fornecidos não correspondem expected: "+method.getParameterCount() + " find: "+args.length);
         }
         
-        // for(int i = 0; i < )
     }
 
     private class UseCaseResultData extends UseCaseResult{
@@ -194,7 +193,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
                 final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
-                    throw exceptionHandler.apply(root.getCause());
+                    throw exceptionHandler.apply(root);
                 } else {
                     return null;
                 }
@@ -211,7 +210,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
                 final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
-                    throw (E) exceptionHandler.apply(root.getCause());
+                    throw (E) exceptionHandler.apply(root));
                 } else {
                     return null;
                 }
