@@ -210,7 +210,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
                 final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
-                    throw (E) exceptionHandler.apply(root.getCause()));
+                    throw (E) exceptionHandler.apply(root.getCause());
                 } else {
                     return null;
                 }
