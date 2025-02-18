@@ -177,8 +177,9 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             args = new Object[0];
         }
         if(method.getParameterCount() != args.length){
-            throw new RuntimeException("numero de parametros invaliados expected: "+method.getParameterCount());
+            throw new RuntimeException("A quantidade argumantos fornecidos não correspondem expected: "+method.getParameterCount() + " find: "+args.length);
         }
+        
     }
 
     private class UseCaseResultData extends UseCaseResult{
