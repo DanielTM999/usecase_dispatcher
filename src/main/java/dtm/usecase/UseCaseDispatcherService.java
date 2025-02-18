@@ -2,6 +2,7 @@ package dtm.usecase;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -13,15 +14,28 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import dtm.usecase.annotatins.InitCase;
 import dtm.usecase.annotatins.UseCase;
+import dtm.usecase.core.PidUseCaseResult;
 import dtm.usecase.core.UseCaseBase;
 import dtm.usecase.core.UseCaseDispatcher;
 import dtm.usecase.core.UseCaseException;
 import dtm.usecase.core.UseCaseResult;
+import dtm.usecase.core.exceptions.InitializeUseCaseException;
 import dtm.usecase.enums.Retention;
 
 public class UseCaseDispatcherService implements UseCaseDispatcher{
     private static Map<String, CompletableFuture<Object>> useCasesAplication;
     private Map<String, CompletableFuture<Object>> useCasesScoped;
+
+    @Override
+    public List<PidUseCaseResult> dispatchList(List<Class<? extends UseCaseBase>> clazzList) {
+        List<PidUseCaseResult> pidList = new ArrayList<>();
+        for(Class<? extends UseCaseBase> useCaseBase : clazzList){
+            String pid = dispatcher(useCaseBase);
+            pidList.add(new PidUseCaseResult(pid, useCaseBase));
+        }
+        return pidList;
+    }
+
 
     @Override
     public String dispatcher(Class<? extends UseCaseBase> clazz) {
@@ -80,7 +94,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         try {
             entityObject = clazz.getDeclaredConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
-            throw new RuntimeException(e);
+            throw new InitializeUseCaseException(e);
         }
         return entityObject;
     }
@@ -92,7 +106,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             .collect(Collectors.toList());
 
         if(methodsFilters.isEmpty()){
-            throw new RuntimeException("classe de caso de uso sem anotação de inicialização (@InitCase): ["+clazz.getName()+"]");
+            throw new InitializeUseCaseException("classe de caso de uso sem anotação de inicialização (@InitCase): ["+clazz.getName()+"]");
         }
 
         return methodsFilters.get(0);
@@ -107,7 +121,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             }
             return retention;
         }else{
-            throw new RuntimeException("classe de caso de uso sem anotação presente: ["+clazz.getName()+"]");
+            throw new InitializeUseCaseException("classe de caso de uso sem anotação presente: ["+clazz.getName()+"]");
         }
     }
 
@@ -170,7 +184,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
     private class UseCaseResultData extends UseCaseResult{
         final private String pid;
         final private CompletableFuture<Object> action;
-        private Function<Throwable, ? extends Exception> exceptionHandler;
+        private Function<Exception, ? extends Exception> exceptionHandler;
 
         public UseCaseResultData(String pid, CompletableFuture<Object> action){
             this.pid = pid;
@@ -192,7 +206,8 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
                 final Throwable root = e.getCause();
                 if (exceptionHandler != null) {
-                    throw exceptionHandler.apply(root.getCause());
+                    final Exception error = getRootCauseAsException(root.getCause() == null ? root : root.getCause());
+                    throw exceptionHandler.apply(error);
                 } else {
                     return null;
                 }
@@ -207,9 +222,10 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 result = (T) action.get();
                 return result;
             } catch (final InterruptedException | ExecutionException | RuntimeException e) {
-                final Throwable root = e.getCause();
+                final Throwable root = e.getCause();          
                 if (exceptionHandler != null) {
-                    throw (E) exceptionHandler.apply(root.getCause());
+                    final Exception error = getRootCauseAsException(root.getCause() == null ? root : root.getCause());
+                    throw (E) exceptionHandler.apply(error);
                 } else {
                     return null;
                 }
@@ -217,7 +233,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         }
 
         @Override
-        public UseCaseResult ifThrow(Function<Throwable, ? extends Exception> exceptionHandler) {
+        public UseCaseResult ifThrow(Function<Exception, ? extends Exception> exceptionHandler) {
             this.exceptionHandler = exceptionHandler;
             return this;
         }
@@ -225,6 +241,19 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         @Override
         public String getPID() {
           return this.pid;
+        }
+
+        private Exception getRootCauseAsException(Throwable throwable) {
+            Throwable cause = throwable;
+            int cont = 0;
+            while (cause.getCause() != null) {
+                cause = cause.getCause();
+                cont++;
+                if(cont == 15){
+                    break;
+                }
+            }
+            return (cause == null) ? new Exception("Undefined cause") : (cause instanceof Exception) ? (Exception) cause : new Exception("Root cause is not an Exception", cause);
         }
 
     }
