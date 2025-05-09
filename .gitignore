@@ -1,4 +1,6 @@
 /target
 /example
+/.idea
+/.vscode
 Main.java
 UseCaseExemple.java

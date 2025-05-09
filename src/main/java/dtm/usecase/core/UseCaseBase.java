@@ -1,21 +1,24 @@
 package dtm.usecase.core;
 
+import dtm.usecase.exceptions.UseCaseRuntimeException;
+
 public abstract class UseCaseBase {
     public UseCaseBase(){}
 
-    protected void throwsMethod() throws Exception{
-        throw new RuntimeException();
+    protected void throwsMethod(){
+        throw new UseCaseRuntimeException("unknow interrupt");
     }
 
-    protected void throwsMethod(String msg) throws Exception{
-        throw new RuntimeException(msg);
+    protected void throwsMethod(String msg){
+        throw new UseCaseRuntimeException(msg);
     }
 
-    protected void throwsMethod(Throwable th) throws Exception{
-        throw new RuntimeException(th);
+    protected void throwsMethod(Throwable th) {
+        throw new UseCaseRuntimeException(th);
     }
 
-    protected void throwsMethod(String msg, Throwable th) throws Exception{
-        throw new RuntimeException(msg, th);
+    protected void throwsMethod(String msg, Throwable th){
+        throw new UseCaseRuntimeException(msg, th);
     }
+
 }

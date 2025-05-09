@@ -21,6 +21,7 @@ import dtm.usecase.core.UseCaseException;
 import dtm.usecase.core.UseCaseResult;
 import dtm.usecase.core.exceptions.InitializeUseCaseException;
 import dtm.usecase.enums.Retention;
+import dtm.usecase.results.UseCaseResultData;
 
 public class UseCaseDispatcherService implements UseCaseDispatcher{
     private static Map<String, CompletableFuture<Object>> useCasesAplication;
@@ -89,6 +90,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         throw new RuntimeException("useCase com pin: '"+caseId+"' não encontrado");
     }
 
+
     private Object initializeUseCaseObject(Class<?> clazz){
         Object entityObject = null;
         try {
@@ -103,7 +105,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         List<Method> methods = Arrays.asList(clazz.getDeclaredMethods());
         List<Method> methodsFilters = methods.stream().parallel()
             .filter(e -> (e.isAnnotationPresent(InitCase.class)))
-            .collect(Collectors.toList());
+            .toList();
 
         if(methodsFilters.isEmpty()){
             throw new InitializeUseCaseException("classe de caso de uso sem anotação de inicialização (@InitCase): ["+clazz.getName()+"]");
@@ -126,15 +128,16 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
     }
 
     private void injectToQueue(Class<? extends UseCaseBase> clazz, String pid, Map<String, CompletableFuture<Object>> useCases, final Object[] args){
+        Object entityObject = initializeUseCaseObject(clazz);
+        Method initMethod = getInitialMethod(clazz);
         CompletableFuture<Object> result = CompletableFuture.supplyAsync(() -> {
-            Object entityObject = initializeUseCaseObject(clazz);
-            Method initMethod = getInitialMethod(clazz);
             validateARGS(initMethod, args);
             try{
                 initMethod.setAccessible(true);
                 return runMethodObject(entityObject, initMethod, args);
             }catch(Exception e){
-                throw new UseCaseException(e.getCause());
+                Throwable rootCause = getRootCause(e);
+                throw new UseCaseException(rootCause instanceof Exception ? (Exception) rootCause : new Exception("Erro desconhecido", rootCause));
             }
         });
         useCases.put(pid, result);
@@ -182,81 +185,13 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         
     }
 
-    private class UseCaseResultData extends UseCaseResult{
-        final private String pid;
-        final private CompletableFuture<Object> action;
-        private Function<Exception, ? extends Exception> exceptionHandler;
-
-        public UseCaseResultData(String pid, CompletableFuture<Object> action){
-            this.pid = pid;
-            this.action = action; 
+    private Throwable getRootCause(Throwable throwable) {
+        Throwable cause = throwable;
+        int limit = 15;
+        while (cause.getCause() != null && limit-- > 0) {
+            cause = cause.getCause();
         }
-
-        @Override
-        public boolean isDone() {
-            return action.isDone();
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public <T> T get() throws Exception{
-            T result;
-            try {
-                result = (T) action.get();
-                return result;
-            } catch (final InterruptedException | ExecutionException | RuntimeException e) {
-                final Throwable root = e.getCause();
-                if (exceptionHandler != null) {
-                    final Exception error = getRootCauseAsException(root.getCause() == null ? root : root.getCause());
-                    throw exceptionHandler.apply(error);
-                } else {
-                    return null;
-                }
-            }
-        }
-
-        @SuppressWarnings("unchecked")
-        @Override
-        public <T, E extends Exception> T get(Class<E> extBase) throws E{
-            T result;
-            try {
-                result = (T) action.get();
-                return result;
-            } catch (final InterruptedException | ExecutionException | RuntimeException e) {
-                final Throwable root = e.getCause();          
-                if (exceptionHandler != null) {
-                    final Exception error = getRootCauseAsException(root.getCause() == null ? root : root.getCause());
-                    throw (E) exceptionHandler.apply(error);
-                } else {
-                    return null;
-                }
-            }
-        }
-
-        @Override
-        public UseCaseResult ifThrow(Function<Exception, ? extends Exception> exceptionHandler) {
-            this.exceptionHandler = exceptionHandler;
-            return this;
-        }
-
-        @Override
-        public String getPID() {
-          return this.pid;
-        }
-
-        private Exception getRootCauseAsException(Throwable throwable) {
-            Throwable cause = throwable;
-            int cont = 0;
-            while (cause.getCause() != null) {
-                cause = cause.getCause();
-                cont++;
-                if(cont == 15){
-                    break;
-                }
-            }
-            return (cause == null) ? new Exception("Undefined cause") : (cause instanceof Exception) ? (Exception) cause : new Exception("Root cause is not an Exception", cause);
-        }
-
+        return cause;
     }
 
 }
