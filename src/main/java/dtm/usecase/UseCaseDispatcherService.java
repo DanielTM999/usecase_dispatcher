@@ -105,7 +105,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         List<Method> methods = Arrays.asList(clazz.getDeclaredMethods());
         List<Method> methodsFilters = methods.stream().parallel()
             .filter(e -> (e.isAnnotationPresent(InitCase.class)))
-            .toList();
+            .collect(Collectors.toList());
 
         if(methodsFilters.isEmpty()){
             throw new InitializeUseCaseException("classe de caso de uso sem anotação de inicialização (@InitCase): ["+clazz.getName()+"]");
