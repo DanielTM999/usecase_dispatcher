@@ -23,7 +23,7 @@ public class UseCaseResultData extends UseCaseResult {
 
     @SuppressWarnings("unchecked")
     @Override
-    public <T> T await() throws Exception{
+    public <T, E extends Exception> T await() throws E{
         T result;
         try {
             result = (T) action.get();
@@ -32,7 +32,7 @@ public class UseCaseResultData extends UseCaseResult {
             final Throwable root = e.getCause();
             if (exceptionHandler != null) {
                 final Exception error = getRootCauseAsException(root.getCause() == null ? root : root.getCause());
-                throw exceptionHandler.apply(error);
+                throw (E)exceptionHandler.apply(error);
             } else {
                 return null;
             }
@@ -40,9 +40,9 @@ public class UseCaseResultData extends UseCaseResult {
     }
 
     @Override
-    public <T> T await(Function<Exception, ? extends Exception> exceptionHandler) throws Exception{
-       this.exceptionHandler = exceptionHandler;
-       return await();
+    public <T, E extends Exception> T await(Function<Exception, E> exceptionHandler) throws E {
+        this.exceptionHandler = exceptionHandler;
+        return await();
     }
 
     @SuppressWarnings("unchecked")
