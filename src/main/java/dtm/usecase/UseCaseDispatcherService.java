@@ -8,8 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import dtm.usecase.annotatins.InitCase;
@@ -24,11 +23,17 @@ import dtm.usecase.enums.Retention;
 import dtm.usecase.results.UseCaseResultData;
 
 public class UseCaseDispatcherService implements UseCaseDispatcher{
-    private static Map<String, CompletableFuture<Object>> useCasesAplication;
-    private Map<String, CompletableFuture<Object>> useCasesScoped;
+    private static final ExecutorService executorService = Executors.newCachedThreadPool();
+    private static final Map<String, CompletableFuture<Object>> useCasesAplication = new ConcurrentHashMap<>();
+    private final Map<String, CompletableFuture<Object>> useCasesScoped;
 
+    public UseCaseDispatcherService(){
+        useCasesScoped = new ConcurrentHashMap<>();
+    }
+
+    @SafeVarargs
     @Override
-    public List<PidUseCaseResult> dispatchList(List<Class<? extends UseCaseBase>> clazzList) {
+    public final List<PidUseCaseResult> dispatchList(Class<? extends UseCaseBase>... clazzList) {
         List<PidUseCaseResult> pidList = new ArrayList<>();
         for(Class<? extends UseCaseBase> useCaseBase : clazzList){
             String pid = dispatcher(useCaseBase);
@@ -37,6 +42,15 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         return pidList;
     }
 
+    @Override
+    public List<PidUseCaseResult> dispatchList(List<Class<? extends UseCaseBase>> clazzList, Object... args) {
+        List<PidUseCaseResult> pidList = new ArrayList<>();
+        for(Class<? extends UseCaseBase> useCaseBase : clazzList){
+            String pid = dispatcher(useCaseBase, args);
+            pidList.add(new PidUseCaseResult(pid, useCaseBase));
+        }
+        return pidList;
+    }
 
     @Override
     public String dispatcher(Class<? extends UseCaseBase> clazz) {
@@ -54,14 +68,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
     public String dispatcher(String PID, Class<? extends UseCaseBase> clazz) {
         String pid = generatePID(PID);
         Retention retention = getScope(clazz);
-
-        if(retention == Retention.ANY){
-            startMap();
-            injectToQueue(clazz, pid, useCasesAplication, null);
-        }else{
-            startMap();
-            injectToQueue(clazz, pid, useCasesScoped, null);
-        }
+        injectToQueue(clazz, pid, getQueueByScope(retention), null);
         return pid;
     }
 
@@ -69,14 +76,7 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
     public String dispatcher(String PID, Class<? extends UseCaseBase> clazz, Object... args) {
         String pid = generatePID(PID);
         Retention retention = getScope(clazz);
-
-        if(retention == Retention.ANY){
-            startMap();
-            injectToQueue(clazz, pid, useCasesScoped, args);
-        }else{
-            startMap();
-            injectToQueue(clazz, pid, useCasesAplication, args);
-        }
+        injectToQueue(clazz, pid, getQueueByScope(retention), args);
         return pid;
     }
     
@@ -90,10 +90,12 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         throw new RuntimeException("useCase com pin: '"+caseId+"' não encontrado");
     }
 
-
     private Object initializeUseCaseObject(Class<?> clazz){
         Object entityObject = null;
         try {
+            if (clazz.getConstructors().length > 0 && clazz.getConstructors()[0].getParameterCount() > 0) {
+                throw new InitializeUseCaseException("A classe do caso de uso deve possuir apenas construtor vazio.");
+            }
             entityObject = clazz.getDeclaredConstructor().newInstance();
         } catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
             throw new InitializeUseCaseException(e);
@@ -105,13 +107,17 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         List<Method> methods = Arrays.asList(clazz.getDeclaredMethods());
         List<Method> methodsFilters = methods.stream().parallel()
             .filter(e -> (e.isAnnotationPresent(InitCase.class)))
-            .collect(Collectors.toList());
+            .toList();
 
         if(methodsFilters.isEmpty()){
             throw new InitializeUseCaseException("classe de caso de uso sem anotação de inicialização (@InitCase): ["+clazz.getName()+"]");
         }
 
-        return methodsFilters.get(0);
+        if (methodsFilters.size() > 1) {
+            throw new InitializeUseCaseException("Mais de um método com @InitCase encontrado na classe [" + clazz.getName() + "]");
+        }
+
+        return methodsFilters.getFirst();
     }
     
     private Retention getScope(Class<? extends UseCaseBase> clazz){
@@ -139,7 +145,8 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
                 Throwable rootCause = getRootCause(e);
                 throw new UseCaseException(rootCause instanceof Exception ? (Exception) rootCause : new Exception("Erro desconhecido", rootCause));
             }
-        });
+        }, executorService);
+
         useCases.put(pid, result);
     }
 
@@ -157,16 +164,6 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         return objResult;
     }
 
-    private void startMap(){
-        if(useCasesAplication == null){
-            useCasesAplication = new HashMap<>();
-        }
-
-        if(useCasesScoped == null){
-            useCasesScoped = new HashMap<>();
-        }
-    }
-
     private String generatePID(String baseSeed){
         if(baseSeed == null || baseSeed.isEmpty()){
             baseSeed = UUID.randomUUID().toString();
@@ -175,14 +172,28 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         return baseSeed;
     }
 
-    private void validateARGS(final Method method, Object[] args){
-        if(args == null){
+    private void validateARGS(final Method method, Object[] args) {
+        if (args == null) {
             args = new Object[0];
         }
-        if(method.getParameterCount() != args.length){
-            throw new RuntimeException("A quantidade argumantos fornecidos não correspondem expected: "+method.getParameterCount() + " find: "+args.length);
+
+        int expectedCount = method.getParameterCount();
+        int providedCount = args.length;
+
+        if (expectedCount != providedCount) {
+            String expectedTypes = Arrays.toString(Arrays.stream(method.getParameterTypes())
+                    .map(Class::getSimpleName)
+                    .toArray());
+
+            String providedTypes = Arrays.toString(Arrays.stream(args)
+                    .map(arg -> arg == null ? "null" : arg.getClass().getSimpleName())
+                    .toArray());
+
+            throw new IllegalArgumentException(
+                    String.format("Quantidade de argumentos incompatível. Esperado: %d %s, fornecido: %d %s",
+                            expectedCount, expectedTypes, providedCount, providedTypes)
+            );
         }
-        
     }
 
     private Throwable getRootCause(Throwable throwable) {
@@ -193,5 +204,10 @@ public class UseCaseDispatcherService implements UseCaseDispatcher{
         }
         return cause;
     }
+
+    private Map<String, CompletableFuture<Object>> getQueueByScope(Retention retention) {
+        return retention == Retention.ANY ? useCasesAplication : useCasesScoped;
+    }
+
 
 }

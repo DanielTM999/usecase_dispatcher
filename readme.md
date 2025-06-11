@@ -153,7 +153,7 @@ String pid = dispatcher.dispatcher(MeuCasoDeUso.class);
 try {
     dispatcher.getUseCase(pid)
             .ifThrow((exceptionBase) -> new UseCaseException("Erro ao executar o caso de uso: " + exceptionBase.getMessage()))
-            .get(UseCaseException.class);
+            .awat(UseCaseException.class);
 } catch (UseCaseException e) {
     // Tratamento da exceção
     e.printStackTrace();

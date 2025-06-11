@@ -3,6 +3,7 @@ package dtm.usecase.core;
 import dtm.usecase.exceptions.UseCaseRuntimeException;
 
 public abstract class UseCaseBase {
+
     public UseCaseBase(){}
 
     protected void throwsMethod(){
